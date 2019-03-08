@@ -83,7 +83,10 @@ export class Rule extends Lint.Rules.TypedRule {
 }
 
 function isRxjsStaticOperator(node: ts.PropertyAccessExpression) {
-  return 'Observable' === node.expression.getText() && RXJS_OPERATORS.has(node.name.getText());
+  return 'Observable' === node.expression.getText() && (
+    RXJS_OPERATORS.has(node.name.getText()) ||
+    CTRADER_OPERATORS.has(node.name.getText())
+  );
 }
 
 function isRxjsStaticOperatorCallExpression(node: ts.Node, typeChecker: ts.TypeChecker) {
@@ -138,9 +141,14 @@ function operatorAlias(operator: string) {
 }
 
 function createImportReplacements(operatorsToAdd: Set<OperatorWithAlias>, startIndex: number): Lint.Replacement[] {
-  return [...Array.from(operatorsToAdd.values())].map(tuple =>
-    Lint.Replacement.appendText(startIndex, `\nimport {${tuple.operator} as ${tuple.alias}} from 'rxjs';\n`)
-  );
+  return [...Array.from(operatorsToAdd.values())].map(tuple => {
+    const { operator, alias } = tuple;
+    const replacement = CTRADER_OPERATORS.has(operator)
+      ? `\nimport {${operator}} from 'ctrader-helpers/src/redux-observable';\n`
+      : `\nimport {${operator} as ${alias}} from 'rxjs/observable/${operator}';\n`;
+
+    return Lint.Replacement.appendText(startIndex, replacement);
+  });
 }
 
 /*
@@ -172,6 +180,11 @@ const RXJS_OPERATORS = new Set([
   'timer',
   'using',
   'zip'
+]);
+
+const CTRADER_OPERATORS = new Set([
+  'fromStateEmitter',
+  'fromTypedEvent'
 ]);
 
 // Not handling NEVER and EMPTY

@@ -138,7 +138,10 @@ export class Rule extends Lint.Rules.TypedRule {
  * operator like map, switchMap etc.
  */
 function isRxjsInstanceOperator(node: ts.PropertyAccessExpression) {
-  return 'Observable' !== node.expression.getText() && RXJS_OPERATORS.has(node.name.getText());
+  return 'Observable' !== node.expression.getText() && (
+    RXJS_OPERATORS.has(node.name.getText()) ||
+    CTRADER_OPERATORS.has(node.name.getText())
+  );
 }
 /**
  * Returns true if {@link node} is a call expression containing an RxJs instance
@@ -205,9 +208,13 @@ function findImportedRxjsOperators(sourceFile: ts.SourceFile): Set<string> {
  * @param startIndex Position where the {@link Lint.Replacement} can be inserted
  */
 function createImportReplacements(operatorsToAdd: Set<string>, startIndex: number): Lint.Replacement[] {
-  return [...Array.from(operatorsToAdd.values())].map(operator =>
-    Lint.Replacement.appendText(startIndex, `\nimport {${operator}} from 'rxjs/operators/${operator}';\n`)
-  );
+  return [...Array.from(operatorsToAdd.values())].map(operator => {
+    const importStr = CTRADER_OPERATORS.has(operator)
+      ? `ctrader-helpers/src/redux-observable`
+      : `rxjs/operators/${operator}`;
+
+    return Lint.Replacement.appendText(startIndex, `\nimport {${operator}} from '${importStr}';\n`);
+  });
 }
 
 /**
@@ -411,6 +418,13 @@ const RXJS_OPERATORS = new Set([
   'switch',
   'let'
 ]);
+
+const CTRADER_OPERATORS = new Set([
+  'isTypeOf',
+  'isTypeOfAndGetPayload',
+  'isTypeOfAsync'
+]);
+
 /**
  * Represents the mapping for pipeable version of some operators whose name has
  * changed due to conflict with JavaScript keyword restrictions.
